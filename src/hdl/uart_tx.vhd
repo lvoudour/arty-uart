@@ -6,10 +6,14 @@
 --  Signals:
 --    clk          : clock of frequency G_CLOCK_FREQ
 --    rst          : active high synchronous reset
---    tx_en_in     : Set high for at least 1 clk cycle to initate data transfer
+--    tx_out       : Tx data line. Should be routed the Rx pin of the external
+--                   UART device.
+--    tx_en_in     : Set high for at least 1 clk cycle to initate data transfer.
+--                   Will be ignored if the module is busy (tx_ready_out low)
 --    tx_data_in   : 8 bit data to send
---    tx_ready_out : high - module is ready to transfer new data
---                   low  - module is currently busy and cannot accept new data
+--    tx_ready_out : high = module is ready to transfer new data
+--                   low  = module is currently busy and cannot accept new data
+--
 --  Parameters:
 --    G_BAUD_RATE  : UART baud rate
 --    G_CLOCK_FREQ : clk frequency. Can be fractional
@@ -59,7 +63,7 @@ architecture rtl of uart_tx is
     signal fsm_tx_state : fsm_tx_type := FSM_TX_IDLE;
     signal cnt_div_r    : integer range 0 to C_CLK_DIVISOR-1 := 0;
     signal cnt_shift_r  : integer range 0 to 9 := 0;
-    signal tx_word_sr   : std_logic_vector(9 downto 0) := (others=>'0');
+    signal tx_data_sr   : std_logic_vector(9 downto 0) := (others=>'0');
     signal tx_ready_r   : std_logic := '0';
     signal tx_r         : std_logic := '1';
 
@@ -83,16 +87,16 @@ begin
                    tx_ready_r <= '1';
                    if (tx_en_in = '1') then
                        tx_ready_r   <= '0';
-                       tx_word_sr   <= '1' & tx_data_in & '0';
+                       tx_data_sr   <= '1' & tx_data_in & '0';
                        fsm_tx_state <= FSM_TX_SHIFT_WORD;
                     end if;
-                
+
 
                 when FSM_TX_SHIFT_WORD =>
-                    tx_r <= tx_word_sr(0);
+                    tx_r <= tx_data_sr(0);
                     if (cnt_div_r = C_CLK_DIVISOR-1) then
                         cnt_div_r  <= 0;
-                        tx_word_sr <= '1' & tx_word_sr(9 downto 1);
+                        tx_data_sr <= '1' & tx_data_sr(9 downto 1);
                         if (cnt_shift_r = 9) then
                             cnt_shift_r  <= 0;
                             fsm_tx_state <= FSM_TX_IDLE;
