@@ -1,7 +1,8 @@
 --------------------------------------------------------------------------------
 --  UART Tx module
 --
---  8 bit data, 1 stop bit, no parity. 
+--  8 bit data, 1 stop bit, no parity. Intended for the Digilent Arty Artix-7
+--  FPGA board, but can be easily used in other projects without modification.
 --
 --  Signals:
 --    clk          : clock of frequency G_CLOCK_FREQ
@@ -21,9 +22,10 @@
 --  Not optimal for high clk rates/low baud rates, as the dividing counter can
 --  become unnecessarily large.
 --
---  The FT2232H chip does not support baud rates of 7 Mbaud 9 Mbaud, 10 Mbaud
---  and 11 Mbaud.
---  http://www.ftdichip.com/Support/Documents/DataSheets/ICs/DS_FT2232H.pdf
+--  Arty FPGA board specific notes:
+--    The FT2232H chip does not support baud rates of 7 Mbaud 9 Mbaud, 10 Mbaud
+--    and 11 Mbaud.
+--    http://www.ftdichip.com/Support/Documents/DataSheets/ICs/DS_FT2232H.pdf
 --
 --
 --------------------------------------------------------------------------------
