@@ -2,7 +2,8 @@
 --
 --  UART Rx module
 --
---  8 bit data, 1 stop bit, no parity. 
+--  8 bit data, 1 stop bit, no parity. Intended for the Digilent Arty Artix-7
+--  FPGA board, but can be easily used in other projects without modification.
 --
 --  Signals:
 --    clk          : clock of frequency G_CLOCK_FREQ
@@ -21,13 +22,13 @@
 --  care must be taken to ensure sampling does not deviate significantly from
 --  the center of the "eye"(ie. the middle of the received bit).
 --
---  A 4 cycle glitch filter is used at the Rx input (maybe an overkill for
---  chip-to-chip communication). No synchronization flip-flops are needed
---  at the input, they are already embedded in the glitch filter.
+--  It is recommended to use sync flip-flops and a glitch filter before 
+--  connecting the rx input to the external UART device.
 --
---  The FT2232H chip does not support baud rates of 7 Mbaud 9 Mbaud, 10 Mbaud
---  and 11 Mbaud.
---  http://www.ftdichip.com/Support/Documents/DataSheets/ICs/DS_FT2232H.pdf
+--  Arty FPGA board specific notes:
+--    The FT2232H chip does not support baud rates of 7 Mbaud 9 Mbaud, 10 Mbaud
+--    and 11 Mbaud.
+--    http://www.ftdichip.com/Support/Documents/DataSheets/ICs/DS_FT2232H.pdf
 --
 --
 --------------------------------------------------------------------------------
@@ -68,24 +69,14 @@ architecture rtl of uart_rx is
     signal cnt_div_r         : integer range 0 to C_CLK_DIVISOR-1 := 0;
     signal cnt_data_r        : integer range 0 to 7 := 0;
     signal rx_data_sr        : std_logic_vector(7 downto 0) := (others=>'0');
-    signal rx_filtered_i     : std_logic := '0';
-    signal rx_filtered_r     : std_logic := '0';
+    signal rx_r              : std_logic := '0';
     signal rx_falling_edge_c : std_logic := '0';
     signal rx_valid_r        : std_logic := '0';
 
 begin
     
-    deglitch_rx_inst : entity work.deglitch(rtl)
-        generic map(
-        G_NUM_CLK_CYCLES => 4
-        )
-        port map(
-        clk     => clk,
-        sig_in  => rx_in,
-        sig_out => rx_filtered_i
-        );
     
-    rx_falling_edge_c <= (not rx_filtered_i) and rx_filtered_r;
+    rx_falling_edge_c <= (not rx_in) and rx_r;
 
     -- A counter is used to synchronize the clock to the baud rate. The counter
     -- is reset at the falling edge of the start bit. Sampling should be done
@@ -94,7 +85,7 @@ begin
     process(clk)
     begin
         if rising_edge(clk) then
-            rx_filtered_r <= rx_filtered_i;
+            rx_r <= rx_in;
 
             -- reset counter
             if (rx_falling_edge_c = '1') and (fsm_rx_state = FSM_RX_IDLE) then
@@ -124,17 +115,17 @@ begin
 
                 -- Wait for the start bit
                 when FSM_RX_IDLE =>
-                    -- We're checking rx_filtered_r and not rx_filtered_i
+                    -- We're checking rx_r and not rx_in
                     -- just in case the counter happens to be halway at the falling edge,
                     -- causing a false trigger
-                    if (rx_filtered_r = '0') and (cnt_div_r = C_CLK_DIVISOR/2 - 1) then
+                    if (rx_r = '0') and (cnt_div_r = C_CLK_DIVISOR/2 - 1) then
                         fsm_rx_state <= FSM_RX_DATA;
                     end if;
 
                 -- Sample the data bits and shift them into a register
                 when FSM_RX_DATA =>
                      if (cnt_div_r = C_CLK_DIVISOR/2 - 1) then
-                         rx_data_sr <= rx_filtered_r & rx_data_sr(7 downto 1);
+                         rx_data_sr <= rx_r & rx_data_sr(7 downto 1);
                          if (cnt_data_r = 7) then
                              cnt_data_r <= 0;
                              fsm_rx_state <= FSM_RX_STOP;
@@ -147,7 +138,7 @@ begin
                 when FSM_RX_STOP =>
                      if (cnt_div_r = C_CLK_DIVISOR/2 - 1) then
                         -- raise the valid flag only if the stop bit is 1
-                        if (rx_filtered_r = '1') then
+                        if (rx_r = '1') then
                             rx_valid_r <= '1';
                         end if;
                         fsm_rx_state <= FSM_RX_IDLE;
