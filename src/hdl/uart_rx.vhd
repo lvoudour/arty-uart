@@ -58,16 +58,17 @@ end entity uart_rx;
 architecture rtl of uart_rx is
     
     constant C_CLK_DIVISOR : positive := positive(round(G_CLOCK_FREQ / real(G_BAUD_RATE)));
+    constant C_DIV_WIDTH   : positive := positive(ceil(log2(real(C_CLK_DIVISOR))));
     
     type fsm_rx_type is (
-    FSM_RX_IDLE,
-    FSM_RX_DATA,
-    FSM_RX_STOP
+    RX_IDLE,
+    RX_DATA,
+    RX_STOP
     );
 
-    signal fsm_rx_state      : fsm_rx_type := FSM_RX_IDLE;
-    signal cnt_div_r         : integer range 0 to C_CLK_DIVISOR-1 := 0;
-    signal cnt_data_r        : integer range 0 to 7 := 0;
+    signal fsm_rx_state      : fsm_rx_type := RX_IDLE;
+    signal cnt_div_r         : unsigned(C_DIV_WIDTH-1 downto 0) := (others=>'0');
+    signal cnt_data_r        : unsigned(7 downto 0) := (others=>'0');
     signal rx_data_sr        : std_logic_vector(7 downto 0) := (others=>'0');
     signal rx_r              : std_logic := '0';
     signal rx_falling_edge_c : std_logic := '0';
@@ -88,11 +89,11 @@ begin
             rx_r <= rx_in;
 
             -- reset counter
-            if (rx_falling_edge_c = '1') and (fsm_rx_state = FSM_RX_IDLE) then
-                cnt_div_r <= 0;
+            if (rx_falling_edge_c = '1') and (fsm_rx_state = RX_IDLE) then
+                cnt_div_r <= (others=>'0');
             else
                 if (cnt_div_r = C_CLK_DIVISOR - 1) then
-                    cnt_div_r <= 0;
+                    cnt_div_r <= (others=>'0');
                 else
                     cnt_div_r <= cnt_div_r + 1;
                 end if;
@@ -105,47 +106,47 @@ begin
     begin
         if rising_edge(clk) then
             if (rst = '1') then
-                cnt_data_r  <= 0;
                 rx_valid_r <= '0';
-                fsm_rx_state <= FSM_RX_IDLE;
+                fsm_rx_state <= RX_IDLE;
             else
                 rx_valid_r <= '0';
 
                 case fsm_rx_state is
 
                 -- Wait for the start bit
-                when FSM_RX_IDLE =>
+                when RX_IDLE =>
                     -- We're checking rx_r and not rx_in
                     -- just in case the counter happens to be halway at the falling edge,
                     -- causing a false trigger
+                    cnt_data_r <= (others=>'0');
                     if (rx_r = '0') and (cnt_div_r = C_CLK_DIVISOR/2 - 1) then
-                        fsm_rx_state <= FSM_RX_DATA;
+                        fsm_rx_state <= RX_DATA;
                     end if;
 
                 -- Sample the data bits and shift them into a register
-                when FSM_RX_DATA =>
-                     if (cnt_div_r = C_CLK_DIVISOR/2 - 1) then
-                         rx_data_sr <= rx_r & rx_data_sr(7 downto 1);
-                         if (cnt_data_r = 7) then
-                             cnt_data_r <= 0;
-                             fsm_rx_state <= FSM_RX_STOP;
-                         else
-                             cnt_data_r <= cnt_data_r + 1;
-                         end if;
-                     end if;
+                when RX_DATA =>
+                    if (cnt_div_r = C_CLK_DIVISOR/2 - 1) then
+                        rx_data_sr <= rx_r & rx_data_sr(7 downto 1);
+                        if (cnt_data_r = 7) then
+                            fsm_rx_state <= RX_STOP;
+                        else
+                            cnt_data_r <= cnt_data_r + 1;
+                        end if;
+                    end if;
 
                 -- Check for the stop bit
-                when FSM_RX_STOP =>
-                     if (cnt_div_r = C_CLK_DIVISOR/2 - 1) then
+                when RX_STOP =>
+                    if (cnt_div_r = C_CLK_DIVISOR/2 - 1) then
                         -- raise the valid flag only if the stop bit is 1
                         if (rx_r = '1') then
                             rx_valid_r <= '1';
                         end if;
-                        fsm_rx_state <= FSM_RX_IDLE;
-                     end if;
+                        fsm_rx_state <= RX_IDLE;
+                    end if;
 
                 when others =>
-                    fsm_rx_state <= FSM_RX_IDLE;
+                    fsm_rx_state <= RX_IDLE;
+
                 end case;
 
             end if;
