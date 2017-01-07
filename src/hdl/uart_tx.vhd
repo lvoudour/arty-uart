@@ -56,15 +56,16 @@ end entity uart_tx;
 architecture rtl of uart_tx is
     
     constant C_CLK_DIVISOR : positive := positive(round(G_CLOCK_FREQ / real(G_BAUD_RATE)));
+    constant C_DIV_WIDTH   : positive := positive(ceil(log2(real(C_CLK_DIVISOR))));
     
     type fsm_tx_type is (
-    FSM_TX_IDLE,
-    FSM_TX_SHIFT_WORD
+    TX_IDLE,
+    TX_SHIFT_WORD
     );
 
-    signal fsm_tx_state : fsm_tx_type := FSM_TX_IDLE;
-    signal cnt_div_r    : integer range 0 to C_CLK_DIVISOR-1 := 0;
-    signal cnt_shift_r  : integer range 0 to 9 := 0;
+    signal fsm_tx_state : fsm_tx_type := TX_IDLE;
+    signal cnt_div_r    : unsigned(C_DIV_WIDTH-1 downto 0) := (others=>'0');
+    signal cnt_shift_r  : unsigned(9 downto 0) := (others=>'0');
     signal tx_data_sr   : std_logic_vector(9 downto 0) := (others=>'0');
     signal tx_ready_r   : std_logic := '0';
     signal tx_r         : std_logic := '1';
@@ -78,30 +79,28 @@ begin
             if (rst = '1') then
                 tx_r         <= '1';
                 tx_ready_r   <= '0';
-                cnt_div_r    <=  0;
-                cnt_shift_r  <=  0;
-                fsm_tx_state <= FSM_TX_IDLE;
+                fsm_tx_state <= TX_IDLE;
             else
                 case fsm_tx_state is
 
-                when FSM_TX_IDLE =>
+                when TX_IDLE =>
                    tx_r       <= '1';
                    tx_ready_r <= '1';
+                   cnt_shift_r  <= (others=>'0');
+                   cnt_div_r    <= (others=>'0');
                    if (tx_en_in = '1') then
                        tx_ready_r   <= '0';
                        tx_data_sr   <= '1' & tx_data_in & '0';
-                       fsm_tx_state <= FSM_TX_SHIFT_WORD;
+                       fsm_tx_state <= TX_SHIFT_WORD;
                     end if;
 
-
-                when FSM_TX_SHIFT_WORD =>
+                when TX_SHIFT_WORD =>
                     tx_r <= tx_data_sr(0);
                     if (cnt_div_r = C_CLK_DIVISOR-1) then
-                        cnt_div_r  <= 0;
-                        tx_data_sr <= '1' & tx_data_sr(9 downto 1);
+                        cnt_div_r   <= (others=>'0');
+                        tx_data_sr  <= '1' & tx_data_sr(9 downto 1);
                         if (cnt_shift_r = 9) then
-                            cnt_shift_r  <= 0;
-                            fsm_tx_state <= FSM_TX_IDLE;
+                            fsm_tx_state <= TX_IDLE;
                         else
                             cnt_shift_r <= cnt_shift_r + 1;
                         end if;
