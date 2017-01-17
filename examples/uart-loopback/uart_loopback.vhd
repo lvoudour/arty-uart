@@ -105,7 +105,7 @@ begin
                 when UART_RST =>
                     tx_data_wr_r <= '0';
                     if (tx_fifo_full_i='0') and (tx_data_wr_r='0') then
-                        tx_data_r    <= to_slv(MSG(cnt_msg_r+1)), 8);
+                        tx_data_r    <= to_slv(MSG(cnt_msg_r+1), 8);
                         tx_data_wr_r <= '1';
                         if (cnt_msg_r = MSG'length-1) then
                             cnt_msg_r <= 0;
