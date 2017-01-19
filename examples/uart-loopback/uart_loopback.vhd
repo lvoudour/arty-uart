@@ -90,20 +90,23 @@ begin
 
     proc_loopback:
     process(clk_100mhz_ipad)
-    begin
+    begin        
         if rising_edge(clk_100mhz_ipad) then
+            
+            -- default assignments
+            rx_data_rd_sr <= rx_data_rd_sr(0) & '0';
+            tx_data_wr_r <= '0';
+        
             if (rst = '1') then
                 cnt_msg_r <= 0;
                 fsm_uart  <= UART_RST;
             else
-                rx_data_rd_sr <= rx_data_rd_sr(0) & '0';
 
                 case fsm_uart is
 
                 -- On reset transmit a "welcome" message before switching
                 -- to loopback mode.
                 when UART_RST =>
-                    tx_data_wr_r <= '0';
                     if (tx_fifo_full_i='0') and (tx_data_wr_r='0') then
                         tx_data_r    <= to_slv(MSG(cnt_msg_r+1), 8);
                         tx_data_wr_r <= '1';
@@ -121,7 +124,7 @@ begin
                     tx_data_wr_r <= rx_data_rd_sr(1);
                     tx_data_r    <= rx_data_i;
                     if (rx_fifo_empty_i = '0') and (rx_data_rd_sr(0) = '0') then
-                        rx_data_rd_sr(0) <= '1';
+                        rx_data_rd_sr <= rx_data_rd_sr(0) & '1';
                     end if;
 
                 end case;

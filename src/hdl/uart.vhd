@@ -115,10 +115,12 @@ begin
     process(clk)
     begin
         if rising_edge(clk) then
+            
+            tx_en_r <= fifo_tx_rd_en_r;
+
             if (rst = '1') then
                 fifo_tx_rd_en_r <= '0';
             else
-                tx_en_r <= fifo_tx_rd_en_r;
                 
                 -- Fetch new data from the FIFO only when the FIFO is not empty and
                 -- the Tx is not busy. Allow one clk cycle for the data to be fetched and
