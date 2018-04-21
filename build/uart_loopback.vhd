@@ -139,7 +139,7 @@ begin
 
   uart_inst : entity work.uart(rtl)
     generic map(
-      G_BAUD_RATE  => 1250000,
+      G_BAUD_RATE  => 115200,
       G_CLOCK_FREQ => 100.0e6
     )
     port map(

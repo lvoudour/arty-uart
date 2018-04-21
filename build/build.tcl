@@ -1,3 +1,8 @@
+if { $argc != 4 } {
+    puts "ERROR: build.tcl requires 4 arguments. Please try again."
+    exit -1
+}
+
 # set output directories
 set REPORTS_DIR ./reports
 set BITSTREAM_DIR ./bit
@@ -10,22 +15,19 @@ if {![file isdirectory $BITSTREAM_DIR]} {
     file mkdir $BITSTREAM_DIR
 }
 
-# set source directory
-set HDL_PATH ../../src/hdl
+set TOP_MODULE [lindex $argv 2]
+set PART [lindex $argv 3]
 
-# set top module
-set TOP_MODULE uart_loopback
+foreach src [lindex $argv 0] {
+  read_vhdl -vhdl2008 -library work $src
+}
 
-# Source files
-read_vhdl -library work $HDL_PATH/fifo_srl.vhd
-read_vhdl -library work $HDL_PATH/uart_tx.vhd
-read_vhdl -library work $HDL_PATH/uart_rx.vhd
-read_vhdl -library work $HDL_PATH/uart.vhd
-read_vhdl -library work uart_loopback.vhd
-read_xdc uart_loopback.xdc
+foreach src [lindex $argv 1] {
+  read_xdc $src
+}
 
 # Synthesis
-synth_design -top $TOP_MODULE -part xc7a35ticsg324-1L
+synth_design -top $TOP_MODULE -part $PART
 write_checkpoint -force $REPORTS_DIR/post_synth.dcp
 report_timing_summary -file $REPORTS_DIR/post_synth_timing_summary.rpt
 report_utilization -file $REPORTS_DIR/post_synth_util.rpt -verbose
