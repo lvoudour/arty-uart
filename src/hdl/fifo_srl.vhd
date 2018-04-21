@@ -51,11 +51,11 @@ use ieee.numeric_std.all;
 use ieee.math_real.all;
 
 entity fifo_srl is
-    generic(
+  generic(
     G_DATA_WIDTH : positive := 8;
     G_DEPTH      : positive := 16
-    );
-    port(
+  );
+  port(
     clk    : in  std_logic;
     rst    : in  std_logic;
     din    : in  std_logic_vector(G_DATA_WIDTH-1 downto 0);
@@ -64,83 +64,83 @@ entity fifo_srl is
     dout   : out std_logic_vector(G_DATA_WIDTH-1 downto 0);
     rd_en  : in  std_logic;
     empty  : out std_logic
-    );
+  );
 end entity fifo_srl;
 
 architecture rtl of fifo_srl is
-    constant C_ADDR_WIDTH : natural := natural(ceil(log2(real(G_DEPTH))));
+  constant C_ADDR_WIDTH : natural := natural(ceil(log2(real(G_DEPTH))));
 
-    type srl16_array is array (G_DEPTH-1 downto 0) of std_logic_vector (G_DATA_WIDTH-1 downto 0);
-    signal fifo : srl16_array := (others=>(others=>'0'));
+  type srl16_array is array (G_DEPTH-1 downto 0) of std_logic_vector (G_DATA_WIDTH-1 downto 0);
+  signal fifo : srl16_array := (others=>(others=>'0'));
 
-    signal ptr     : unsigned(C_ADDR_WIDTH-1 downto 0) := (others=>'0');
-    signal inc_ptr : unsigned(C_ADDR_WIDTH-1 downto 0) := (others=>'0');
-    signal dec_ptr : unsigned(C_ADDR_WIDTH-1 downto 0) := (others=>'0');
-    signal empty_r : std_logic := '1';
-    signal full_r  : std_logic := '0';
-    signal wr_rd   : std_logic_vector(1 downto 0) := "00";
+  signal ptr     : unsigned(C_ADDR_WIDTH-1 downto 0) := (others=>'0');
+  signal inc_ptr : unsigned(C_ADDR_WIDTH-1 downto 0) := (others=>'0');
+  signal dec_ptr : unsigned(C_ADDR_WIDTH-1 downto 0) := (others=>'0');
+  signal empty_r : std_logic := '1';
+  signal full_r  : std_logic := '0';
+  signal wr_rd   : std_logic_vector(1 downto 0) := "00";
 begin
     
-    wr_rd   <= wr_en & rd_en;
-    inc_ptr <= ptr + 1;
-    dec_ptr <= ptr - 1;
+  wr_rd   <= wr_en & rd_en;
+  inc_ptr <= ptr + 1;
+  dec_ptr <= ptr - 1;
 
-    proc_data:
-    process(clk)
-    begin
-        if rising_edge(clk) then
-            if (rst = '1') then
-                ptr     <= (others=>'0');
-                full_r  <= '0';
-                empty_r <= '1';
-            else
-                case wr_rd is
-                
-                -- Read operation
-                -- Read the data and decrement the pointer if not empty.
-                -- FIFO is empty if the next pointer decrement reaches zero.
-                when "01" =>
-                    if (empty_r = '0') then
-                        dout <= fifo(to_integer(dec_ptr));
-                        ptr  <= dec_ptr;
-                    end if;
+  proc_data:
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      if (rst = '1') then
+        ptr     <= (others=>'0');
+        full_r  <= '0';
+        empty_r <= '1';
+      else
+        case wr_rd is
+        
+        -- Read operation
+        -- Read the data and decrement the pointer if not empty.
+        -- FIFO is empty if the next pointer decrement reaches zero.
+        when "01" =>
+          if (empty_r = '0') then
+            dout <= fifo(to_integer(dec_ptr));
+            ptr  <= dec_ptr;
+          end if;
 
-                    full_r <= '0';
-                    if (dec_ptr = 0) then
-                        empty_r <= '1';
-                    end if;
+          full_r <= '0';
+          if (dec_ptr = 0) then
+            empty_r <= '1';
+          end if;
 
-                -- Write operation
-                -- Write the data and increment the pointer if not full.
-                -- FIFO is full if the next pointer increment reaches zero.
-                when "10" =>
-                    if (full_r = '0') then
-                        fifo <= fifo(G_DEPTH-2 downto 0) & din;
-                        ptr  <= inc_ptr;
-                    end if;
+        -- Write operation
+        -- Write the data and increment the pointer if not full.
+        -- FIFO is full if the next pointer increment reaches zero.
+        when "10" =>
+          if (full_r = '0') then
+            fifo <= fifo(G_DEPTH-2 downto 0) & din;
+            ptr  <= inc_ptr;
+          end if;
 
-                    empty_r <= '0';                   
-                    if (inc_ptr = 0) then
-                        full_r <= '1';
-                    end if;
+          empty_r <= '0';                   
+          if (inc_ptr = 0) then
+            full_r <= '1';
+          end if;
 
-                -- Simultaneous read/write
-                -- Read and write data without moving the pointer
-                when "11" =>
-                    fifo <= fifo(G_DEPTH-2 downto 0) & din;
-                    dout <= fifo(to_integer(dec_ptr));
+        -- Simultaneous read/write
+        -- Read and write data without moving the pointer
+        when "11" =>
+          fifo <= fifo(G_DEPTH-2 downto 0) & din;
+          dout <= fifo(to_integer(dec_ptr));
 
-                -- No operation
-                when others =>
-                    null;
+        -- No operation
+        when others =>
+          null;
 
-                end case;
+        end case;
 
-            end if;
-        end if;
-    end process;
+      end if;
+    end if;
+  end process;
 
-    full  <= full_r;
-    empty <= empty_r;
+  full  <= full_r;
+  empty <= empty_r;
 
 end architecture rtl;
